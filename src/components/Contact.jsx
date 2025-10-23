@@ -5,16 +5,20 @@ export default function Contact() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const backend = import.meta.env.VITE_BACKEND_URL || ''
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setSent(false)
 
-    // simple validation
     if (!name.trim() || !email.trim() || !message.trim()) {
-      setError('Please fill in all fields.')
+      setError('Please fill in all required fields.')
       return
     }
     const emailRegex = /[^@\s]+@[^@\s]+\.[^@\s]+/
@@ -23,14 +27,29 @@ export default function Contact() {
       return
     }
 
-    const to = 'studio@example.com'
-    const subject = encodeURIComponent(`New inquiry from ${name}`)
-    const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)
-    const mailto = `mailto:${to}?subject=${subject}&body=${body}`
+    if (!backend) {
+      setError('Backend URL is not configured.')
+      return
+    }
 
-    // Open mail client
-    window.location.href = mailto
-    setSent(true)
+    try {
+      setLoading(true)
+      const res = await fetch(`${backend}/api/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: message.trim(), phone: phone.trim() || undefined })
+      })
+      if (!res.ok) throw new Error('Failed to send')
+      setSent(true)
+      setName('')
+      setEmail('')
+      setMessage('')
+      setPhone('')
+    } catch (e) {
+      setError('Could not send your message. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -77,6 +96,16 @@ export default function Contact() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">Phone (optional)</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1 w-full rounded-lg border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                  placeholder="+1 555 123 4567"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Message</label>
                 <textarea
                   rows={5}
@@ -87,10 +116,10 @@ export default function Contact() {
                 />
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
-              {sent && <p className="text-sm text-green-700">Opening your email client… If nothing happens, email us directly.</p>}
+              {sent && <p className="text-sm text-green-700">Thanks for reaching out — your message has been received.</p>}
               <div className="pt-2">
-                <button type="submit" className="w-full inline-flex justify-center rounded-lg bg-gray-900 text-white px-5 py-3 font-medium hover:bg-gray-800 transition">
-                  Send message
+                <button disabled={loading} type="submit" className="w-full inline-flex justify-center rounded-lg bg-gray-900 text-white px-5 py-3 font-medium hover:bg-gray-800 transition disabled:opacity-60">
+                  {loading ? 'Sending…' : 'Send message'}
                 </button>
               </div>
             </form>
